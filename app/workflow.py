@@ -72,12 +72,14 @@ def clean_content(c) -> dict:
     if att:
         if not isinstance(att, dict):
             raise PolicyError("Malformed attachment.")
-        ref = {"filename": files.clean_name(att.get("filename")), "sha256": att.get("sha256"), "size": att.get("size")}
-        reason = files.check(ref)
-        if reason:
-            raise PolicyError(f"Attachment rejected: {reason}. Upload the file again.")
-        ref["size"] = os.path.getsize(files.path_for(ref["sha256"]))  # trust the disk, not the client
-        out["attachment"] = ref
+        name, sha, size = att.get("filename"), att.get("sha256"), att.get("size")
+        if not (isinstance(name, str) and name.strip() and isinstance(sha, str) and len(sha) == 64
+                and isinstance(size, int) and not isinstance(size, bool) and size >= 0):
+            raise PolicyError("Malformed attachment (needs filename, 64-character sha256 and size).")
+        if files.state({"sha256": sha}) != "ok":
+            raise PolicyError("The attached file is not in the store. Upload it again.")
+        out["attachment"] = {"filename": files.clean_name(name) or "attachment", "sha256": sha,
+                             "size": os.path.getsize(files.path_for(sha))}  # trust the disk, not the client
     return out
 
 
@@ -435,7 +437,7 @@ def perform(conn, doc_id, actor, action, comment="", content=None, ts=None) -> d
             elif action == "RESUBMIT":
                 c = clean_content(content)
                 prev = next(v["content"] for v in _load_versions(conn, doc_id) if v["version"] == state["version"])
-                changed = sorted(k for k in c if c[k] != prev.get(k))
+                changed = sorted(k for k in set(c) | set(prev) if c.get(k) != prev.get(k))
                 if not changed:
                     raise PolicyError("A resubmission must change something. Revise the document to address the rejection.")
                 ch = L.content_hash(c)

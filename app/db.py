@@ -4,12 +4,14 @@ Note what is NOT here: there is no `status` column anywhere. The status of a
 document is never stored, it is always *derived* by replaying the ledger.
 """
 import os
+import shutil
 import sqlite3
 import threading
 
 _BASE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DB_PATH = os.environ.get("SEALTRAIL_DB", os.path.join(_BASE, "data", "sealtrail.db"))
 ANCHOR_PATH = os.environ.get("SEALTRAIL_ANCHORS", os.path.join(_BASE, "data", "anchors.log"))
+FILES_DIR = os.environ.get("SEALTRAIL_FILES", os.path.join(_BASE, "data", "files"))  # uploads, named by sha256
 
 # One writer at a time: makes "two approvers click at the same instant" safe.
 WRITE_LOCK = threading.RLock()
@@ -50,13 +52,15 @@ CREATE TABLE IF NOT EXISTS ledger(
 """
 
 
-def configure(db_path=None, anchor_path=None):
+def configure(db_path=None, anchor_path=None, files_dir=None):
     """Point the app at different files (used by tests)."""
-    global DB_PATH, ANCHOR_PATH
+    global DB_PATH, ANCHOR_PATH, FILES_DIR
     if db_path:
         DB_PATH = db_path
     if anchor_path:
         ANCHOR_PATH = anchor_path
+    if files_dir:
+        FILES_DIR = files_dir
 
 
 def connect():
@@ -79,6 +83,6 @@ def reset_all():
     for p in (DB_PATH, ANCHOR_PATH):
         if os.path.exists(p):
             os.remove(p)
-    from . import files  # local import: files imports this module
-    files.clear()
+    shutil.rmtree(FILES_DIR, ignore_errors=True)
+    os.makedirs(FILES_DIR, exist_ok=True)
     init_db()

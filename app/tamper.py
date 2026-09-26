@@ -42,14 +42,14 @@ def tamper(conn, doc_id, mode) -> dict:
         conn.execute("UPDATE versions SET content_json=? WHERE doc_id=? AND version=?", (L.canonical(c), doc_id, row["version"]))
         return {"seq": None, "message": f"Changed the amount of v{row['version']} from {old} to {c['amount']} after it was approved. The ledger was not touched."}
 
-    if mode == "replace_file":
+    if mode == "swap_file":
         row = conn.execute("SELECT * FROM versions WHERE doc_id=? ORDER BY version DESC LIMIT 1", (doc_id,)).fetchone()
         att = json.loads(row["content_json"]).get("attachment")
         if not att:
-            raise W.PolicyError("This document has no attachment to swap. Try DOC-001, or attach a file first.")
-        with open(files.path_for(att["sha256"]), "wb") as f:
-            f.write(b"SWAPPED AFTER APPROVAL: the quote now says a different price.\n")
-        return {"seq": None, "message": f"Overwrote the stored file '{att['filename']}' of v{row['version']} with different bytes. Neither the ledger nor the document text was touched."}
+            raise W.PolicyError("This document has no uploaded file to swap. Try DOC-001 or DOC-003, or attach a file first.")
+        with open(files.path_for(att["sha256"]), "wb") as f:  # raw write, bypasses the app
+            f.write(b"SWAPPED AFTER APPROVAL: this file now says something different.\n")
+        return {"seq": None, "message": f"Replaced the uploaded file '{att['filename']}' (v{row['version']}) after approval. Neither the ledger nor the document text was touched."}
 
     if mode == "delete_entry":
         t = _pick(entries, "REJECT") or (entries[1] if len(entries) > 2 else entries[-1])

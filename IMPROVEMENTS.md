@@ -7,7 +7,7 @@ Already fixed in this version: `/api/verify` (Audit all) now also covers a docum
 2. Rehearse the 3-minute script in `docs/EXPLANATION.md` section 7 twice. Know which button turns Verify red.
 3. Start the server before the judges arrive; keep the browser on DOC-002.
 
-## B. DONE (attachments implemented; see app/files.py). Original notes: Biggest gap versus the problem statement (do first if you have time, about 25 minutes)
+## B. DONE: real file uploads (`app/files.py`, `POST /api/uploads`, `GET /api/documents/{id}/file`, `swap_file` tamper mode, `verify_bundle.py --files`). Original notes:
 **Real file attachments.** The statement says "document", and today a document is only title, vendor, amount and description.
 - Add `POST /api/documents/{id}/attachment` (multipart) storing the file under `data/files/<sha256>`.
 - Put `{"filename", "sha256", "size"}` inside the document **content**, so it is covered by the existing content seal. Then swapping the PDF after approval is detected as `CONTENT_EDITED` with no other change to the ledger.

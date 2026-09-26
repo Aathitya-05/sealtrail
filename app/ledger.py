@@ -151,6 +151,7 @@ def anchor_log_ok(lines=None) -> bool:
 CHECK_OF = {
     "ENTRY_MISSING": "sequence", "LINK_BROKEN": "chain", "ENTRY_EDITED": "entries",
     "PAYLOAD_UNREADABLE": "entries", "CONTENT_EDITED": "content", "VERSION_MISSING": "content",
+    "FILE_MISSING": "content", "FILE_EDITED": "content",
     "ANCHOR_MISMATCH": "anchors", "UNANCHORED": "anchors", "ANCHOR_LOG_TAMPERED": "anchors",
     "ANCHOR_MISSING_ENTRY": "anchors", "RULE_VIOLATION": "rules",
 }
@@ -221,11 +222,15 @@ def verify(conn, doc_id: str, anchor_lines=None) -> dict:
             except Exception:
                 att = None
             if att:
-                reason = files.check(att)
-                if reason:
-                    brk(e["seq"], "CONTENT_EDITED",
-                        f"The attachment of version {e['version']} was changed after it was sealed at entry #{e['seq']}: "
-                        f"{reason}. Approvals no longer refer to the file that was approved.")
+                st = files.state(att)
+                if st == "missing":
+                    brk(e["seq"], "FILE_MISSING",
+                        f"The file attached to version {e['version']} ({att.get('filename')}) is missing from storage. "
+                        f"It was sealed at entry #{e['seq']}.")
+                elif st == "edited":
+                    brk(e["seq"], "FILE_EDITED",
+                        f"The file attached to version {e['version']} ({att.get('filename')}) was replaced after it was "
+                        f"sealed at entry #{e['seq']}. Approvals no longer refer to the file that was approved.")
 
     # 5. external anchors
     lines = read_anchor_lines() if anchor_lines is None else anchor_lines

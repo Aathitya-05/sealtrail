@@ -173,21 +173,26 @@ def checkpoint_check(body: CheckpointIn):
     return L.check_checkpoint(body.anchor)
 
 
-@app.get("/api/documents/{doc_id}/versions/{version}/attachment")
-def attachment(doc_id: str, version: int):
-    """Download the file exactly as stored (verification, not this route, says whether it is trustworthy)."""
+@app.get("/api/documents/{doc_id}/file")
+def download(doc_id: str, version: Optional[int] = Query(None)):
+    """Serve the SEALED attachment of a version, but only if its bytes still match the sealed hash."""
     conn = _db()
     try:
-        v = next((x for x in W._load_versions(conn, doc_id) if x["version"] == version), None)
+        entries = L.load_entries(conn, doc_id)
+        if not entries:
+            raise W.NotFound(f"Document {doc_id} not found.")
+        vers = W._load_versions(conn, doc_id)
+        v = next((x for x in vers if x["version"] == version), None) if version is not None else (vers[-1] if vers else None)
         att = ((v or {}).get("content") or {}).get("attachment")
         if not att:
-            raise W.NotFound("No attachment on that version.")
-        try:
-            with open(files.path_for(att["sha256"]), "rb") as f:
-                data = f.read()
-        except (OSError, ValueError):
-            raise W.NotFound("The stored file is missing.")
-        name = files.clean_name(att.get("filename")).replace('"', "")
+            raise W.NotFound("That version has no attached file.")
+        seal = next((e["seq"] for e in entries if e["action"] in ("SUBMIT", "RESUBMIT") and e["version"] == v["version"]), "?")
+        if files.state(att) != "ok":
+            return JSONResponse(status_code=409, content={
+                "detail": f"The attached file no longer matches the hash sealed at entry #{seal}"})
+        with open(files.path_for(att["sha256"]), "rb") as f:
+            data = f.read()
+        name = files.clean_name(att.get("filename")).replace('"', "") or "attachment"
         return Response(data, media_type="application/octet-stream",
                         headers={"Content-Disposition": f'attachment; filename="{name}"',
                                  "X-Content-Type-Options": "nosniff"})
@@ -196,14 +201,15 @@ def attachment(doc_id: str, version: int):
 
 
 # ------------------------------------------------------------------ writes
-@app.post("/api/files")
-async def upload(request: Request, filename: str = Query("attachment")):
+@app.post("/api/uploads")
+async def upload(request: Request, filename: str = Query("")):
     """Raw-body upload (no multipart dependency). Returns the reference to put inside document content."""
     data = await request.body()
     try:
         return files.store(data, filename)
     except ValueError as ex:
-        raise W.PolicyError(str(ex))
+        raise HTTPException(status_code=400, detail=str(ex))
+
 
 @app.post("/api/documents")
 def create(body: CreateIn):

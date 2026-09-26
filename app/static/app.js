@@ -3,7 +3,7 @@
 
 const S = {
   users: [], templates: {}, docs: [], sel: null, view: null, at: null,
-  verify: {}, verifyAll: {}, me: null, demo: false, newStages: [],
+  verify: {}, verifyAll: {}, fileBad: {}, me: null, demo: false, newStages: [],
 };
 
 const $ = (s, r = document) => r.querySelector(s);
@@ -36,20 +36,27 @@ async function api(path, opts = {}) {
 /* Upload a file (raw body); returns {filename, sha256, size} to embed in the sealed document content. */
 async function uploadFile(file) {
   if (!file) return null;
-  const res = await fetch("/api/files?filename=" + encodeURIComponent(file.name), { method: "POST", body: file });
+  const res = await fetch("/api/uploads?filename=" + encodeURIComponent(file.name), { method: "POST", body: file, headers: { "Content-Type": "application/octet-stream" } });
   let data = null;
   try { data = await res.json(); } catch (e) { /* empty body */ }
   if (!res.ok) throw new Error((data && data.detail) || res.statusText);
   return data;
 }
 const fmtSize = (n) => (n < 1024 ? n + " B" : n < 1048576 ? (n / 1024).toFixed(1) + " KB" : (n / 1048576).toFixed(1) + " MB");
+const FILE_TYPES = ".pdf,.docx,.xlsx,.pptx,.png,.jpg,.jpeg,.txt";
+function fileAltered(v) {
+  const r = S.verify[v.id];
+  return !!S.fileBad[v.id + ":" + v.state.version] || !!(r && r.breaks.some((b) => b.code === "FILE_EDITED" || b.code === "FILE_MISSING"));
+}
 function attachHtml(v, c) {
   const a = c.attachment;
   if (!a) return "";
-  return `<div class="attach">📎 <a href="/api/documents/${encodeURIComponent(v.id)}/versions/${v.state.version}/attachment">${esc(a.filename)}</a>
-    <span class="muted">${fmtSize(a.size)} · sealed SHA-256</span> <code>${short(a.sha256)}</code></div>`;
+  const bad = fileAltered(v);
+  return `<div class="attach ${bad ? "bad" : ""}"><span class="ai" aria-hidden="true">${bad ? "⚠" : "📎"}</span>
+    <div class="am"><b>${esc(a.filename)}</b>
+      <small>${fmtSize(a.size)} · sha256 <code>${a.sha256.slice(0, 8)}...</code>${bad ? ` · <span class="alt">File altered</span>` : ""}</small></div>
+    <button class="btn small" data-act="download" data-ver="${v.state.version}">Download</button></div>`;
 }
-
 let toastTimer;
 function toast(msg, err = false) {
   const t = $("#toast");
@@ -163,7 +170,7 @@ function actionsHtml(v) {
           <label>What did you change?<input id="rs-comment" placeholder="e.g. Added cost centre"></label>
         </div>
         <label style="margin-top:8px">Description<textarea id="rs-desc" rows="2">${esc(c.description)}</textarea></label>
-        <label style="margin-top:8px">Replace attachment${c.attachment ? ` (currently ${esc(c.attachment.filename)}; leave empty to keep it)` : " (optional)"}<input id="rs-file" type="file"></label>
+        <label style="margin-top:8px">Replace attachment${c.attachment ? ` (currently ${esc(c.attachment.filename)}; leave empty to keep it)` : " (optional)"}<input id="rs-file" type="file" accept="${FILE_TYPES}"></label>
         <div class="actrow"><button class="btn primary" data-act="resubmit">Resubmit as v${st.version + 1}</button></div>`;
     } else {
       h += `<p class="note">Waiting for the requester (${esc(v.owner ? v.owner.name : "")}) to resubmit a revised version.</p>`;
@@ -185,7 +192,7 @@ function replayHtml(v) {
 }
 const replayLabel = (at, total) => at >= total ? "Live: all " + total + " entries" : at === 0 ? "Before anything happened" : `State after entry #${at} of ${total}`;
 
-const CHECKS = [["sequence", "No gaps"], ["chain", "Chain links"], ["entries", "Entry hashes"], ["content", "Content seals"], ["anchors", "External anchors"], ["rules", "Rules replay"]];
+const CHECKS = [["sequence", "No gaps"], ["chain", "Chain links"], ["entries", "Entry hashes"], ["content", "Content and file seals"], ["anchors", "External anchors"], ["rules", "Rules replay"]];
 function verifyHtml(v) {
   const r = S.verify[v.id];
   let h = `<div class="vhead"><div><b>Is this history trustworthy?</b><div class="muted" style="font-size:13px">Recomputes every hash, checks content seals against the ledger, compares with the external anchor log and replays the approval rules.</div></div>
@@ -223,11 +230,14 @@ function ledgerHtml(v) {
     const e = row.e;
     const cls = (r ? r.status[e.seq] || "ok" : "") + (e.future ? " future" : "");
     const seal = e.payload && e.payload.content_hash ? `<span>${e.action === "APPROVE" ? "approves content seal" : "content seal"}</span><code>${short(e.payload.content_hash)}</code>` : "";
+    const ver = v.versions.find((x) => x.version === e.version);
+    const att = (e.action === "SUBMIT" || e.action === "RESUBMIT") && ver && ver.content && ver.content.attachment;
+    const attLine = att ? `<div class="cm muted">attachment: ${esc(att.filename)} <code>${att.sha256.slice(0, 8)}...</code></div>` : "";
     const changed = e.payload && e.payload.changed ? `<div class="cm muted">Changed: ${e.payload.changed.map(esc).join(", ")}</div>` : "";
     const where = e.action === "SUBMIT" || e.action === "RESUBMIT" ? "" : ` · Stage ${e.stage_idx + 1}${stageName(e.stage_idx) ? ": " + esc(stageName(e.stage_idx)) : ""}`;
     return `<div class="entry ${cls}"><div class="rail"><span class="dot"></span></div><div class="body">
       <div class="l1"><span class="badge ${e.action}">${e.action}</span><b>${esc(e.actor_name)}</b><span class="muted" style="font-size:12.5px">${esc(e.actor_title)} · v${e.version}${where}</span><span class="tm">#${e.seq} · ${when(e.ts)}</span></div>
-      ${e.comment ? `<p class="cm">“${esc(e.comment)}”</p>` : ""}${changed}
+      ${e.comment ? `<p class="cm">“${esc(e.comment)}”</p>` : ""}${changed}${attLine}
       <div class="hs"><span>prev</span><code>${e.seq === 1 ? "genesis" : short(e.prev_hash)}</code><span>→ hash</span><code>${short(e.hash)}</code>${seal}</div>
       ${bs.map((b) => `<div class="why-bad">${esc(b.message)}</div>`).join("")}
       ${r && r.status[e.seq] === "untrusted" ? `<div class="why-bad">Untrusted: it sits after a broken entry, so the chain can no longer vouch for it.</div>` : ""}
@@ -248,7 +258,7 @@ const LAB = [
   ["edit_actor", "Change who approved", "Edit the approver name on one approval, like swapping the blame."],
   ["edit_comment", "Rewrite a comment", "Replace a rejection reason with “Looks fine to me.”"],
   ["edit_content", "Lower the amount", "Change the approved amount to a tenth of its value."],
-  ["replace_file", "Swap the attached file", "Overwrite the stored attachment (e.g. the vendor quote) after approval."],
+  ["swap_file", "Swap the uploaded file", "Overwrite the stored attachment (e.g. the vendor quote) after approval."],
   ["delete_entry", "Delete an entry", "Remove a rejection or approval from history."],
   ["forge_approval", "Forge an approval", "Inject a valid-looking APPROVE that never went through the app."],
   ["rewrite_chain", "Rewrite the whole chain", "Smart attacker: edit an entry and recompute every hash after it."],
@@ -291,7 +301,7 @@ function renderDoc() {
 
 /* ------------------------------------------------------------------ actions */
 async function refreshAfterWrite(view) {
-  delete S.verify[S.sel]; delete S.verifyAll[S.sel];
+  delete S.verify[S.sel]; delete S.verifyAll[S.sel]; S.fileBad = {};
   S.at = null; S.view = view;
   await loadDocs();
   renderDoc();
@@ -301,6 +311,22 @@ const doAction = guard(async (action, extra = {}) => {
   const res = await api(`/api/documents/${encodeURIComponent(S.sel)}/actions`, { method: "POST", body: { actor: S.me, action, ...extra } });
   await refreshAfterWrite(res.view);
   toast(`${action} sealed as entry #${res.entry.seq} (hash ${short(res.entry.hash)})`);
+});
+
+const doDownload = guard(async (ver) => {
+  const res = await fetch(`/api/documents/${encodeURIComponent(S.sel)}/file?version=${ver}`);
+  if (res.status === 409) {
+    let d = "The attached file no longer matches its sealed hash.";
+    try { d = (await res.json()).detail || d; } catch (e) { /* keep default */ }
+    S.fileBad[S.sel + ":" + ver] = true; renderDoc();
+    return toast(d, true);
+  }
+  if (!res.ok) throw new Error("Download failed (" + res.status + ").");
+  const m = /filename="([^"]+)"/.exec(res.headers.get("Content-Disposition") || "");
+  const url = URL.createObjectURL(await res.blob());
+  const a = document.createElement("a"); a.href = url; a.download = m ? m[1] : "attachment"; document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 2000);
+  toast("File downloaded. Its bytes matched the sealed hash.");
 });
 
 const doVerify = guard(async () => {
@@ -400,6 +426,7 @@ document.addEventListener("click", (ev) => {
   else if (a === "rm-stage") { readStages(); S.newStages.splice(+b.dataset.i, 1); $("#tplsel").value = "custom"; renderStages(); }
   else if (a === "verify-all") doVerifyAll();
   else if (a === "verify") doVerify();
+  else if (a === "download") doDownload(b.dataset.ver);
   else if (a === "checkpoint") doCheckpoint();
   else if (a === "cp-check") doCheckpointCheck();
   else if (a === "export") window.location.href = `/api/documents/${encodeURIComponent(S.sel)}/export`;

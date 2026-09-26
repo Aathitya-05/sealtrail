@@ -62,8 +62,9 @@ Existing tools show *who approved*. They cannot prove *that the record was never
 1. **Scenario:** a purchase order workflow. Stage 1 sequential (Manager then Finance Head); Stage 2 parallel, all (Legal and Procurement).
 2. Open **DOC-002**. The "Why is it stuck?" panel says it is waiting on Procurement. Switch user to Karthik and approve. The document becomes Approved.
 3. Open **DOC-003** to show a **reject, then revise, then resubmit as v2** story with all history preserved.
-4. Click **Verify history**: green, with six checks passed. Point at the attached vendor quote and its sealed hash.
-5. Open the **Tamper lab** and click "Swap the attached file" (or "Change who approved"). Click **Verify history** again: **red**, and it names the exact entry (`CONTENT_EDITED` for the file; chain and anchors stay green, proving only the file changed).
+4. Click **Verify history**: green, with six checks passed.
+5. **Uploads:** open **DOC-001**, click **Download** on the attached PDF (works). Open the **Tamper lab** and click "Swap the uploaded file". Click **Download** again: it is refused with the seal message. Click **Verify history**: **red**, `FILE_EDITED` at entry #1 (chain and anchors stay green, so only the file changed). Click **Reset demo data**.
+   - Then try "Change who approved": **Verify history** goes red and names the exact entry. Reset again.
 6. Click "Rewrite the whole chain" (the smart attacker). The hashes look consistent, but the **external anchors** still catch it.
 7. (Optional, 20 seconds) Click **Get checkpoint** and **Copy**: "this fingerprint of all history lives in my email, outside the database." Paste it into **Check it** after the attack and it reports NOT FOUND if history was rewritten and re-chained.
 8. Close with the pitch line.
@@ -82,13 +83,13 @@ Existing tools show *who approved*. They cannot prove *that the record was never
 
 # 9. Technology used
 
-Python and FastAPI (backend), SQLite (database), SHA-256 via `hashlib` (fingerprints), one HTML page with plain JavaScript (interface). 41 automated tests cover the rules and every tampering attack, including two users approving at the same instant.
+Python and FastAPI (backend), SQLite (database), SHA-256 via `hashlib` (fingerprints), one HTML page with plain JavaScript (interface). 44 automated tests cover the rules and every tampering attack, including two users approving at the same instant.
 
 # 10. Honest limitations and next steps
 
 - No real login; a user dropdown stands in for it. Production would use single sign-on and per-user digital signatures on each entry.
 - The anchor log is a local file in this demo; it should be moved to independent storage.
-- Attachments are stored on local disk (`data/files/<sha256>`, 10 MB cap). The offline audit pack carries the sealed file hash but not the file bytes.
+- Documents can carry an uploaded file (PDF, Word, Excel, PowerPoint, image, text; 10 MB max). It is stored on local disk by its SHA-256 and sealed through the document content. The audit pack carries the sealed hash; `tools/verify_bundle.py --files <dir>` re-hashes the files offline.
 - SQLite with a single write lock suits a demo; production would use PostgreSQL.
 - Tamper-*evidence* detects and locates changes; it does not prevent someone with database access from making them.
 

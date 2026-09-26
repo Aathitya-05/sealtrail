@@ -16,6 +16,33 @@ USERS = [
 ]
 
 
+def make_pdf(title: str, lines: list) -> bytes:
+    """A tiny valid one-page PDF, hand-built so the demo needs no PDF library."""
+    def esc(t):
+        return t.replace("\\", "\\\\").replace("(", "\\(").replace(")", "\\)")
+    body = ["BT /F1 18 Tf 60 760 Td (%s) Tj ET" % esc(title)]
+    y = 730
+    for ln in lines:
+        body.append("BT /F1 12 Tf 60 %d Td (%s) Tj ET" % (y, esc(ln)))
+        y -= 20
+    stream = "\n".join(body).encode("latin-1")
+    objs = [b"<< /Type /Catalog /Pages 2 0 R >>",
+            b"<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
+            b"<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 4 0 R "
+            b"/Resources << /Font << /F1 5 0 R >> >> >>",
+            b"<< /Length %d >>\nstream\n" % len(stream) + stream + b"\nendstream",
+            b"<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>"]
+    out, offs = b"%PDF-1.4\n", []
+    for i, o in enumerate(objs, 1):
+        offs.append(len(out))
+        out += b"%d 0 obj\n" % i + o + b"\nendobj\n"
+    xref = len(out)
+    out += b"xref\n0 %d\n0000000000 65535 f \n" % (len(objs) + 1)
+    out += b"".join(b"%010d 00000 n \n" % o for o in offs)
+    out += b"trailer\n<< /Size %d /Root 1 0 R >>\nstartxref\n%d\n%%%%EOF\n" % (len(objs) + 1, xref)
+    return out
+
+
 def seed(conn):
     conn.executemany("INSERT OR REPLACE INTO users VALUES(?,?,?,?)", USERS)
     base = dt.datetime.now(dt.timezone.utc).replace(microsecond=0) - dt.timedelta(days=6)
@@ -28,8 +55,9 @@ def seed(conn):
     std = W.TEMPLATES["standard"]["stages"]
 
     # DOC-001: fully approved (the "everything is fine" story used for the tamper demo)
-    quote = files.store(b"DELL INDIA PVT LTD - QUOTATION Q-2291\n10 x Latitude 5440, 16 GB / 512 GB\nTotal: INR 500,000 (excl. GST)\n",
-                        "Dell-quote-Q2291.txt")
+    quote = files.store(make_pdf("Dell India Pvt Ltd - Quotation Q-2291", [
+        "10 x Latitude 5440 (16 GB RAM, 512 GB SSD)", "Unit price: INR 50,000", "Total: INR 500,000 (excl. GST)",
+        "Valid for 30 days."]), "Dell-quote-Q2291.pdf")
     d1 = W.create_document(conn, "u_aarav", {
         "title": "Laptops for 10 new hires", "vendor": "Dell India Pvt Ltd", "amount": 500000,
         "description": "10 developer laptops (16 GB RAM, 512 GB SSD) for the July joining batch.",
@@ -50,15 +78,21 @@ def seed(conn):
 
     # DOC-003: rejected, revised and resubmitted (v1 -> v2)
     clock["t"] = base + dt.timedelta(days=2)
+    hosting_v1 = files.store(make_pdf("CloudNimbus - Renewal quote (v1)", [
+        "Annual production hosting renewal", "Total: INR 240,000", "Includes a 20% price increase."]), "CloudNimbus-renewal-v1.pdf")
+    hosting_v2 = files.store(make_pdf("CloudNimbus - Renewal quote (revised)", [
+        "Annual production hosting renewal", "Total: INR 216,000", "Price increase reduced to 8%.", "Cost centre ENG-INFRA-07."]),
+        "CloudNimbus-renewal-v2-revised.pdf")
     d3 = W.create_document(conn, "u_aarav", {
         "title": "Cloud hosting renewal", "vendor": "CloudNimbus", "amount": 240000,
-        "description": "Annual renewal of production hosting."}, std, ts=tick(0))
+        "description": "Annual renewal of production hosting.", "attachment": hosting_v1}, std, ts=tick(0))
     W.perform(conn, d3, "u_meera", "APPROVE", "Renewal is routine.", ts=tick(3))
     W.perform(conn, d3, "u_rahul", "REJECT", "Cost centre is missing. Attach it and justify the 20% price increase.", ts=tick(6))
     W.perform(conn, d3, "u_aarav", "COMMENT", "Understood, will revise today.", ts=tick(1))
     W.perform(conn, d3, "u_aarav", "RESUBMIT", "Added cost centre ENG-INFRA-07 and negotiated the increase down.", content={
         "title": "Cloud hosting renewal", "vendor": "CloudNimbus", "amount": 216000,
-        "description": "Annual renewal of production hosting. Cost centre ENG-INFRA-07. Price increase reduced from 20% to 8%."},
+        "description": "Annual renewal of production hosting. Cost centre ENG-INFRA-07. Price increase reduced from 20% to 8%.",
+        "attachment": hosting_v2},
         ts=tick(5))
     W.perform(conn, d3, "u_meera", "APPROVE", "Thanks for fixing the numbers.", ts=tick(3))
 

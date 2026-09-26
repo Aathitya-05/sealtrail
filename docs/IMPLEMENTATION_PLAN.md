@@ -173,7 +173,7 @@ Other templates: HR policy (HR + Legal parallel ALL, then Finance Head).
 - **Tamper lab** (collapsible, dashed red) with the six attacks and Reset.
 - Accessible (labels, focus rings), works at phone width, supports dark mode.
 
-## 11. Tests that must pass (29 in the reference)
+## 11. Tests that must pass (44 in the current reference)
 
 - Sequential order enforced; parallel ALL any order; parallel ANY first approval completes and releases others.
 - Only listed approvers; requester cannot approve own document; no double approval.
@@ -193,7 +193,7 @@ Other templates: HR policy (HR + Legal parallel ALL, then Finance Head).
 - [ ] Full flow works in the browser: submit, approve (sequential then parallel), reject with comment, resubmit v2.
 - [ ] Verify is green on untouched documents.
 - [ ] Each Tamper Lab button turns Verify red and points to the correct entry.
-- [ ] All 29 tests pass (`python -m pytest -q`).
+- [ ] All 44 tests pass (`python -m pytest -q`).
 
 ## 13. Suggested 90-minute build order
 
@@ -211,3 +211,13 @@ Other templates: HR policy (HR + Legal parallel ALL, then Finance Head).
 - No real authentication (user dropdown). Production would use SSO and sign entries with per-user keys.
 - The anchor log is a local file here; in production it must live outside the database owner's control (email, object-lock storage, or a notary).
 - SQLite and one write lock suit a demo; a production system would use Postgres with row-level locking.
+
+## 15. File uploads (added after the first build)
+- **Storage:** `app/files.py`. Files are saved as `db.FILES_DIR/<sha256 of the bytes>` (default `data/files`). User input never becomes a path.
+- **Sealing:** the optional `content["attachment"] = {filename, sha256, size}` sits inside the document content, so the existing content hash seals it, and every APPROVE already binds to it. `ledger.HASH_FIELDS` is unchanged. A resubmission that changes only the file counts as a change (`payload["changed"]` contains `attachment`).
+- **API:** `POST /api/uploads?filename=x` (raw body, max 10 MB, types pdf/docx/xlsx/pptx/png/jpg/jpeg/txt, filename sanitized, HTTP 400 on rejection). `GET /api/documents/{id}/file?version=N` re-hashes the stored file and returns 409 `The attached file no longer matches the hash sealed at entry #k` if it differs; otherwise it downloads it (`Content-Disposition: attachment`, `nosniff`, never inline).
+- **Verification:** in the content-seal step, `verify()` re-hashes the file of every SUBMIT/RESUBMIT version: `FILE_MISSING` and `FILE_EDITED`, both under the "content" check, attached to the seal entry's seq.
+- **Tamper lab:** mode `swap_file` overwrites the stored bytes with different ones (raw file write).
+- **Offline:** `tools/verify_bundle.py pack.json --files <dir>` re-hashes attached files; without the flag it says they were not checked.
+- **Seed:** DOC-001 has a PDF quote; DOC-003 has a different PDF on v1 and v2; DOC-002 and DOC-004 have none (the field is optional).
+- **UI:** file input on New document and Resubmit (upload first, then send `content.attachment`), an attachment chip with Download (turns red on 409), and the attachment shown on SUBMIT/RESUBMIT ledger entries.

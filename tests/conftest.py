@@ -11,7 +11,7 @@ from app import db, seed  # noqa: E402
 @pytest.fixture()
 def conn(tmp_path):
     """A fresh, seeded database + anchor log for every test."""
-    db.configure(str(tmp_path / "t.db"), str(tmp_path / "anchors.log"))
+    db.configure(str(tmp_path / "t.db"), str(tmp_path / "anchors.log"), str(tmp_path / "files"))
     db.reset_all()
     c = db.connect()
     seed.seed(c)
@@ -22,7 +22,7 @@ def conn(tmp_path):
 @pytest.fixture()
 def blank(tmp_path):
     """Users only, no documents."""
-    db.configure(str(tmp_path / "b.db"), str(tmp_path / "b-anchors.log"))
+    db.configure(str(tmp_path / "b.db"), str(tmp_path / "b-anchors.log"), str(tmp_path / "b-files"))
     db.reset_all()
     c = db.connect()
     c.executemany("INSERT INTO users VALUES(?,?,?,?)", seed.USERS)
