@@ -64,10 +64,10 @@ Existing tools show *who approved*. They cannot prove *that the record was never
 3. Open **DOC-003** to show a **reject, then revise, then resubmit as v2** story with all history preserved.
 4. Click **Verify history**: green, with six checks passed.
 5. **Uploads:** open **DOC-001**, click **Download** on the attached PDF (works). Open the **Tamper lab** and click "Swap the uploaded file". Click **Download** again: it is refused with the seal message. Click **Verify history**: **red**, `FILE_EDITED` at entry #1 (chain and anchors stay green, so only the file changed). Click **Reset demo data**.
-   - Then try "Change who approved": **Verify history** goes red and names the exact entry. Reset again.
-6. Click "Rewrite the whole chain" (the smart attacker). The hashes look consistent, but the **external anchors** still catch it.
-7. (Optional, 20 seconds) Click **Get checkpoint** and **Copy**: "this fingerprint of all history lives in my email, outside the database." Paste it into **Check it** after the attack and it reports NOT FOUND if history was rewritten and re-chained.
-8. Close with the pitch line.
+6. Then try "Change who approved": **Verify history** goes red and names the exact entry. Reset again.
+7. Click "Rewrite the whole chain" (the smart attacker). The hashes look consistent, but the **external anchors** still catch it.
+8. (Optional, 20 seconds) Click **Get checkpoint** and **Copy**: "this fingerprint of all history lives in my email, outside the database." Paste it into **Check it** after the attack and it reports NOT FOUND if history was rewritten and re-chained.
+9. Close with the pitch line.
 
 # 8. Likely judge questions
 
