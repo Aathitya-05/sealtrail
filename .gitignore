@@ -1,0 +1,7 @@
+__pycache__/
+*.pyc
+.pytest_cache/
+.venv/
+# runtime state: database, anchor log, uploaded files (recreated by seeding)
+data/
+.claude/

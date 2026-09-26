@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SealTrail: approvals that can't be quietly rewritten</title>
+<link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+<header class="top">
+  <div class="brand">
+    <span class="logo" aria-hidden="true">
+      <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path d="M12 2l8 3v6c0 5-3.4 9.3-8 11-4.6-1.7-8-6-8-11V5l8-3z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M8 12l3 3 5-6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    </span>
+    <div>
+      <b>SealTrail</b>
+      <small>Approvals that can't be quietly rewritten</small>
+    </div>
+  </div>
+  <div class="who">
+    <label for="me">Acting as</label>
+    <select id="me"></select>
+  </div>
+</header>
+
+<main class="layout">
+  <aside class="side">
+    <div class="side-actions">
+      <button class="btn primary" data-act="new">+ New document</button>
+      <button class="btn" data-act="verify-all" title="Verify every document's ledger">Audit all</button>
+    </div>
+    <h4>Approval requests</h4>
+    <div id="doclist" class="doclist" aria-live="polite"></div>
+  </aside>
+
+  <section class="content" id="content">
+    <div class="empty">Loading…</div>
+  </section>
+</main>
+
+<dialog id="newdlg">
+  <form method="dialog" id="newform" class="newform">
+    <h2>New document for approval</h2>
+    <div class="grid2">
+      <label>Title<input name="title" required placeholder="e.g. Laptops for new hires"></label>
+      <label>Vendor<input name="vendor" placeholder="e.g. Dell India"></label>
+      <label>Amount (₹)<input name="amount" type="number" min="0" step="1" value="0"></label>
+      <label>Workflow template
+        <select name="template" id="tplsel"></select>
+      </label>
+    </div>
+    <label>Description<textarea name="description" rows="2" placeholder="What is being approved and why?"></textarea></label>
+    <label>Attachment (optional, e.g. the vendor quote; sealed by its SHA-256)<input name="file" id="newfile" type="file"></label>
+    <div class="stagebuilder">
+      <div class="sb-head"><b>Approval stages</b><small>Configure as needed. Stages run top to bottom.</small></div>
+      <div id="stagerows"></div>
+      <button type="button" class="btn small" data-act="add-stage">+ Add stage</button>
+    </div>
+    <div class="dlg-actions">
+      <button type="button" class="btn" data-act="cancel-new">Cancel</button>
+      <button type="submit" class="btn primary">Submit for approval</button>
+    </div>
+  </form>
+</dialog>
+
+<div id="toast" class="toast" role="status" aria-live="polite"></div>
+<script src="/static/app.js"></script>
+</body>
+</html>
