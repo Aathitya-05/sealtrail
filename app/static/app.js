@@ -372,7 +372,7 @@ const doTamper = guard(async (mode) => {
 
 const doReset = guard(async () => {
   await api("/api/demo/reset", { method: "POST" });
-  S.verify = {}; S.verifyAll = {};
+  S.verify = {}; S.verifyAll = {}; S.fileBad = {};
   await loadDocs();
   await selectDoc(S.sel && S.docs.some((d) => d.id === S.sel) ? S.sel : S.docs[0].id);
   toast("Demo data reset.");
