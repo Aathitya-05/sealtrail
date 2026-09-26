@@ -13,7 +13,7 @@ Approval history is a **hash-chained, tamper-evident ledger**. State is never st
 - `app/main.py` FastAPI routes; `app/static/` single-page UI (vanilla JS, no build)
 - `tools/verify_bundle.py` offline auditor (stdlib only)
 - `tests/` 44 pytest tests. Run `python -m pytest -q`
-- `docs/IMPLEMENTATION_PLAN.md` full spec; `docs/EXPLANATION.md` judge-facing explanation
+- `docs/IMPLEMENTATION_PLAN.md` full spec; `docs/EXPLANATION.md` judge-facing explanation; `docs/DEMO_GUIDE.md` click-by-click demo script
 
 ## Rules to keep intact (do not "simplify" these away)
 1. No `status` column anywhere. Status = `fold(ledger)`.

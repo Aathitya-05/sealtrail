@@ -35,3 +35,6 @@ Upload demo: open DOC-001, click **Download** on the attached PDF, then Tamper l
 
 ## Look
 The UI uses a "notary's ledger" theme (paper, ink, wax-seal red; dark mode follows the system). Styles are in `app/static/style.css`.
+
+## Demo guide
+The click-by-click script for the live demo is in `docs/DEMO_GUIDE.md` (Word copy: `docs/SealTrail_Demo_Guide.docx`).
