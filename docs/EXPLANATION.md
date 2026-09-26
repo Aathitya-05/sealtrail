@@ -93,6 +93,22 @@ Python and FastAPI (backend), SQLite (database), SHA-256 via `hashlib` (fingerpr
 - SQLite with a single write lock suits a demo; production would use PostgreSQL.
 - Tamper-*evidence* detects and locates changes; it does not prevent someone with database access from making them.
 
-# 11. One-line pitch
+# 11. File uploads and checkpoints
+
+**Real documents, sealed.** A document version can carry an uploaded file (PDF, Word, Excel, PowerPoint, image or text, up to 10 MB). The file is stored by its own SHA-256 fingerprint, and that fingerprint (with the filename and size) sits inside the document content, so the content seal and every approval cover the file too. Swapping the file after approval is detected exactly like editing the amount: **Verify history** goes red with `FILE_EDITED` (or `FILE_MISSING`) at the entry that sealed it, and the Download button refuses to hand over a file that no longer matches its seal. Files are only ever offered as downloads, never displayed inline.
+
+**Checkpoint.** One click shows a short fingerprint of all history so far (the head of the anchor chain). The user copies it into an email or chat, outside the database. Later, pasting it into "Check it" proves the log still contains that exact point, or reports NOT FOUND if history was truncated or rewritten since. It only helps if the copy is kept somewhere the database owner cannot edit.
+
+**Offline audit.** "Download audit pack" exports everything an outside auditor needs. `python tools/verify_bundle.py pack.json --files data/files` re-checks the chain, the anchors, the content seals and the attached files with only the Python standard library.
+
+# 12. Run it and where things are
+
+- **Run:** `pip install -r requirements.txt`, then `python run.py`, then open http://localhost:8000. The first start seeds four purchase orders (DOC-001 approved with a PDF quote, DOC-002 stuck at a parallel stage, DOC-003 rejected and resubmitted with a different PDF on v2, DOC-004 untouched). Tests: `python -m pytest -q` (44 tests).
+- **Backend:** `app/ledger.py` (hash chain, anchors, verify, checkpoints), `app/workflow.py` (approval rules engine), `app/files.py` (upload store), `app/main.py` (API), `app/tamper.py` (demo-only attacker), `app/seed.py` (demo data).
+- **Frontend:** `app/static/` (one page, plain JavaScript, no build step). The look is a "notary's ledger": paper, ink and wax-seal red, with dark mode.
+- **Offline tool:** `tools/verify_bundle.py`.
+- **More detail:** `docs/IMPLEMENTATION_PLAN.md` (full specification) and `CLAUDE.md` (rules that must not be broken).
+
+# 13. One-line pitch
 
 **"We solve the trust problem in approvals: not just who approved, but proof that the record was never changed."**
