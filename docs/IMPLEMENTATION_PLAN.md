@@ -221,3 +221,11 @@ Other templates: HR policy (HR + Legal parallel ALL, then Finance Head).
 - **Offline:** `tools/verify_bundle.py pack.json --files <dir>` re-hashes attached files; without the flag it says they were not checked.
 - **Seed:** DOC-001 has a PDF quote; DOC-003 has a different PDF on v1 and v2; DOC-002 and DOC-004 have none (the field is optional).
 - **UI:** file input on New document and Resubmit (upload first, then send `content.attachment`), an attachment chip with Download (turns red on 409), and the attachment shown on SUBMIT/RESUBMIT ledger entries.
+
+## 16. Checkpoint (added after the first build)
+- `ledger.checkpoint()` returns `{ts, entries, anchor_head, log_ok}`: the head of the anchor chain, a fingerprint of ALL history. `ledger.check_checkpoint(anchor)` reports whether a saved head is still inside the current, unbroken anchor chain (found, position, total, message).
+- API: `GET /api/checkpoint`, `POST /api/checkpoint/check {anchor}`. UI: a Checkpoint card with Get checkpoint, Copy and Check it.
+- Honest limit: it only helps if the copy is kept somewhere the database owner cannot edit. Tests: `tests/test_checkpoint.py`.
+
+## 17. UI theme
+A notary's-ledger look in `app/static/style.css` (no external fonts, no build step): paper background, navy ink, wax-seal red accent, serif headings, coloured status stripes on document cards, dark mode via `prefers-color-scheme`.

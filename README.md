@@ -29,3 +29,9 @@ Set `SEALTRAIL_DEMO=0` to disable the tamper and reset endpoints.
 Attach a PDF, Word, Excel, PowerPoint, image or text file (10 MB max) when creating or resubmitting a document. The file is stored by its SHA-256 and sealed with the document, so swapping it after approval is caught by **Verify history**.
 
 Upload demo: open DOC-001, click **Download** on the attached PDF, then Tamper lab > **Swap the uploaded file**, click **Download** again (refused), then **Verify history** (red, `FILE_EDITED` at entry #1). Offline: `python tools/verify_bundle.py pack.json --files data/files`.
+
+## Checkpoint
+**Get checkpoint** shows a one-line fingerprint of all history (the head of the anchor chain) with a Copy button. Save it outside the database (email, chat). Later, paste it into **Check it**: it reports NOT FOUND if history was truncated or rewritten since. API: `GET /api/checkpoint`, `POST /api/checkpoint/check`.
+
+## Look
+The UI uses a "notary's ledger" theme (paper, ink, wax-seal red; dark mode follows the system). Styles are in `app/static/style.css`.

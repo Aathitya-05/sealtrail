@@ -6,7 +6,7 @@ Hackathon project for **SD-06 Collaborative Document Approval Platform** (Sun In
 Approval history is a **hash-chained, tamper-evident ledger**. State is never stored; it is derived by replaying the ledger through the rules engine. Verify names the exact tampered entry.
 
 ## Where things are
-- `app/ledger.py` hashing, external anchor log, `verify()` (six checks)
+- `app/ledger.py` hashing, external anchor log, `verify()` (six checks), `checkpoint()` / `check_checkpoint()` (copy the anchor head outside the DB, check it later)
 - `app/workflow.py` rules engine: `apply()`, `fold()`, `perform()`, `document_view()`
 - `app/files.py` content-addressed upload store (`db.FILES_DIR`, default `data/files/<sha256>`); `verify()` re-hashes it
 - `app/tamper.py` DEMO-ONLY attacker (raw SQL). Never call from normal code paths
